@@ -35,7 +35,7 @@ extern const char* RECEIVER_PHONES[];
 #define SMS_UPDATE_INTERVAL 3000     // ms (reduced priority, check every 3s)
 #define DISPLAY_UPDATE_INTERVAL 200  // ms
 #define KEYBOARD_SCAN_INTERVAL 50    // ms
-#define GPS_SEND_INTERVAL 10000      // ms (10 seconds)
+#define GPS_SEND_INTERVAL 5000      // ms (10 seconds)
 #define LORA_ACK_TIMEOUT 5000        // ms (5 seconds)
 
 #endif

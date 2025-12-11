@@ -344,21 +344,26 @@ void bluetoothTask(void *parameter) {
         }
       }
       else if (command == "status") {
-        GPSData localGPS;
-        if (xSemaphoreTake(gpsMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-          localGPS = currentGPS;
-          xSemaphoreGive(gpsMutex);
-        }
-        
         BT.println("=== STATUS ===");
         BT.println("Mode: " + String(currentMode == MODE_TRACKER ? "TRACKER" : "GROUND"));
         BT.println("LoRa: " + String(systemStatus.loraConnected ? "OK" : "FAIL"));
-        BT.println("GPS: " + String(localGPS.isValid ? "LOCK" : "NO FIX"));
-        if (localGPS.isValid) {
-          BT.println("Lat: " + String(localGPS.latitude, 6));
-          BT.println("Lng: " + String(localGPS.longitude, 6));
+        
+        // Only show GPS data in TRACKER mode
+        if (currentMode == MODE_TRACKER) {
+          GPSData localGPS;
+          if (xSemaphoreTake(gpsMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            localGPS = currentGPS;
+            xSemaphoreGive(gpsMutex);
+          }
+          
+          BT.println("GPS: " + String(localGPS.isValid ? "LOCK" : "NO FIX"));
+          if (localGPS.isValid) {
+            BT.println("Lat: " + String(localGPS.latitude, 6));
+            BT.println("Lng: " + String(localGPS.longitude, 6));
+          }
+          BT.println("Sats: " + String(localGPS.satellites));
         }
-        BT.println("Sats: " + String(localGPS.satellites));
+        
         BT.println("GSM: " + String(systemStatus.networkConnected ? "OK" : "FAIL"));
         BT.println("Signal: " + String(systemStatus.signalStrength));
         BT.println("==============");
@@ -412,6 +417,25 @@ void bluetoothTask(void *parameter) {
         }
         BT.println(">>> Done");
       }
+      else if (command.startsWith("gsm ") || command.startsWith("at ")) {
+        // Send raw AT command to GSM module
+        String atCommand = command.substring(command.indexOf(' ') + 1);
+        atCommand.trim();
+        
+        if (atCommand.length() > 0) {
+          BT.println(">>> Sending to GSM: " + atCommand);
+          if (xSemaphoreTake(smsMutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+            SerialSIM.println(atCommand);
+            delay(500);
+            BT.println(">>> Response:");
+            while (SerialSIM.available()) {
+              BT.write(SerialSIM.read());
+            }
+            xSemaphoreGive(smsMutex);
+          }
+          BT.println("\n>>> Done");
+        }
+      }
       else if (command == "help") {
         BT.println("=== COMMANDS ===");
         BT.println("tracker - Tracker mode");
@@ -420,6 +444,7 @@ void bluetoothTask(void *parameter) {
         BT.println("sms <msg> - Send message");
         BT.println("gpsraw/nmea - Show GPS raw");
         BT.println("checksms - Check SMS queue");
+        BT.println("gsm/at <cmd> - Send AT cmd");
         BT.println("================");
       }
       else {
