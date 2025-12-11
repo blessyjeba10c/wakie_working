@@ -56,7 +56,10 @@ void setup() {
   
   SerialSIM.println("AT+CMGF=1");
   delay(200);
-  SerialSIM.println("AT+CNMI=2,1,0,0,0");
+  // Store SMS in SIM memory instead of forwarding immediately
+  SerialSIM.println("AT+CNMI=2,0,0,0,0"); // Changed from 2,1 to 2,0 (no forward)
+  delay(200);
+  SerialSIM.println("AT+CPMS=\"SM\",\"SM\",\"SM\""); // Use SIM storage
   delay(200);
   
   // Initialize LoRa

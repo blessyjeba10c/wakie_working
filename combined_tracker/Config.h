@@ -31,8 +31,8 @@ extern const char* RECEIVER_PHONES[];
 
 // Timing Configuration
 #define GPS_UPDATE_INTERVAL 100      // ms
-#define LORA_UPDATE_INTERVAL 100     // ms
-#define SMS_UPDATE_INTERVAL 500      // ms
+#define LORA_UPDATE_INTERVAL 50      // ms (faster for better reception)
+#define SMS_UPDATE_INTERVAL 3000     // ms (reduced priority, check every 3s)
 #define DISPLAY_UPDATE_INTERVAL 200  // ms
 #define KEYBOARD_SCAN_INTERVAL 50    // ms
 #define GPS_SEND_INTERVAL 10000      // ms (10 seconds)

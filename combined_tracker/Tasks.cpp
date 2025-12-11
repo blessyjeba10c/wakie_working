@@ -42,8 +42,13 @@ void loraTask(void *parameter) {
   static unsigned long ackWaitStart = 0;
   static String lastSentPayload = "";
   
+  // Keep LoRa in receive mode
+  LoRa.idle();
+  LoRa.receive();
+  
   while (true) {
-    if (xSemaphoreTake(loraMutex, portMAX_DELAY) == pdTRUE) {
+    // Use timeout instead of blocking forever to ensure frequent checks
+    if (xSemaphoreTake(loraMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
       // Receive LoRa packets
       int packetSize = LoRa.parsePacket();
       if (packetSize) {
@@ -89,6 +94,7 @@ void loraTask(void *parameter) {
               LoRa.beginPacket();
               LoRa.print("ACK:" + incoming.substring(0, 20));
               LoRa.endPacket();
+              LoRa.receive(); // Return to RX mode
               logToBoth("[LoRa] ACK sent");
             }
           }
@@ -139,6 +145,7 @@ void loraTask(void *parameter) {
             LoRa.beginPacket();
             LoRa.print(payload);
             LoRa.endPacket();
+            LoRa.receive(); // Return to RX mode immediately
             
             if (acknowledgmentEnabled) {
               // Wait for ACK
@@ -171,60 +178,73 @@ void loraTask(void *parameter) {
 }
 
 void smsTask(void *parameter) {
-  logToBoth("[SMS Task] Started");
-  
-  static bool waitingForBody = false;
-  static String smsHeader = "";
-  static String senderNumber = "";
+  logToBoth("[SMS Task] Started - Queue mode");
   
   while (true) {
-    if (xSemaphoreTake(smsMutex, portMAX_DELAY) == pdTRUE) {
-      // Handle incoming SMS
-      while (SerialSIM.available()) {
-        String line = SerialSIM.readStringUntil('\n');
-        line.trim();
-        if (line.length() == 0) continue;
-        
-        if (line.startsWith("+CMT:")) {
-          smsHeader = line;
-          waitingForBody = true;
-          
-          int firstQuote = line.indexOf('"');
-          int secondQuote = line.indexOf('"', firstQuote + 1);
-          if (firstQuote != -1 && secondQuote != -1) {
-            senderNumber = line.substring(firstQuote + 1, secondQuote);
-          }
-          logToBoth("SMS from: " + senderNumber);
-          continue;
-        }
-        
-        if (waitingForBody && line.length() > 0) {
-          String messageBody = line;
-          messageBody.trim();
-          
-          systemStatus.lastSMS = messageBody;
-          systemStatus.lastSMSTime = millis();
-          
-          if (BT.hasClient()) {
-            BT.println("\n📱 SMS RECEIVED");
-            BT.println("From: " + senderNumber);
-            BT.println("Msg: " + messageBody + "\n");
-          }
-          
-          if (displayState.initialized) {
-            displayReceivedMessage("SMS", senderNumber, messageBody);
-          }
-          
-          logToBoth("SMS: " + messageBody);
-          
-          waitingForBody = false;
-          smsHeader = "";
-          senderNumber = "";
-        }
+    if (xSemaphoreTake(smsMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+      // Check for stored messages in SIM memory
+      SerialSIM.println("AT+CMGL=\"REC UNREAD\""); // List unread messages
+      delay(500); // Wait for response
+      
+      String response = "";
+      unsigned long startTime = millis();
+      while (millis() - startTime < 1000 && SerialSIM.available()) {
+        response += SerialSIM.readString();
+        delay(10);
       }
       
-      // GPS sending is now handled in loraTask for synchronization
-      // smsTask only handles receiving messages
+      if (response.indexOf("+CMGL:") != -1) {
+        // Parse multiple messages
+        int index = 0;
+        while (true) {
+          int msgStart = response.indexOf("+CMGL:", index);
+          if (msgStart == -1) break;
+          
+          // Extract message index for deletion
+          int indexStart = msgStart + 7;
+          int indexEnd = response.indexOf(',', indexStart);
+          String msgIndex = response.substring(indexStart, indexEnd);
+          msgIndex.trim();
+          
+          // Extract sender number
+          int phoneStart = response.indexOf('"', indexEnd) + 1;
+          int phoneEnd = response.indexOf('"', phoneStart);
+          String senderNumber = response.substring(phoneStart, phoneEnd);
+          
+          // Extract message body (next line after +CMGL)
+          int bodyStart = response.indexOf('\n', msgStart) + 1;
+          int bodyEnd = response.indexOf('\n', bodyStart);
+          if (bodyEnd == -1) bodyEnd = response.length();
+          String messageBody = response.substring(bodyStart, bodyEnd);
+          messageBody.trim();
+          
+          if (messageBody.length() > 0 && !messageBody.startsWith("OK") && !messageBody.startsWith("+CMGL")) {
+            systemStatus.lastSMS = messageBody;
+            systemStatus.lastSMSTime = millis();
+            
+            logToBoth("[SMS RX] From: " + senderNumber);
+            logToBoth("[SMS RX] Msg: " + messageBody);
+            
+            if (BT.hasClient()) {
+              BT.println("\n📱 SMS RECEIVED");
+              BT.println("From: " + senderNumber);
+              BT.println("Msg: " + messageBody + "\n");
+            }
+            
+            if (displayState.initialized) {
+              displayReceivedMessage("SMS", senderNumber, messageBody);
+            }
+            
+            // Delete message after reading
+            delay(100);
+            SerialSIM.println("AT+CMGD=" + msgIndex);
+            delay(200);
+          }
+          
+          index = bodyEnd + 1;
+          if (index >= response.length()) break;
+        }
+      }
       
       xSemaphoreGive(smsMutex);
     }
@@ -309,6 +329,18 @@ void bluetoothTask(void *parameter) {
         }
         BT.println("\n=== END GPS RAW ===");
       }
+      else if (command == "checksms" || command == "smscheck") {
+        BT.println(">>> Checking SMS queue...");
+        if (xSemaphoreTake(smsMutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+          SerialSIM.println("AT+CMGL=\"ALL\"");
+          delay(1000);
+          while (SerialSIM.available()) {
+            BT.write(SerialSIM.read());
+          }
+          xSemaphoreGive(smsMutex);
+        }
+        BT.println(">>> Done");
+      }
       else if (command == "help") {
         BT.println("=== COMMANDS ===");
         BT.println("tracker - Tracker mode");
@@ -316,6 +348,7 @@ void bluetoothTask(void *parameter) {
         BT.println("status - Show status");
         BT.println("sms <msg> - Send message");
         BT.println("gpsraw/nmea - Show GPS raw");
+        BT.println("checksms - Check SMS queue");
         BT.println("================");
       }
       else {
