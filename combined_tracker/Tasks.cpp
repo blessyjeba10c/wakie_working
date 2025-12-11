@@ -16,6 +16,8 @@ TaskHandle_t keyboardTaskHandle = NULL;
 void gpsTask(void *parameter) {
   logToBoth("[GPS Task] Started");
   
+  static unsigned long lastDebugTime = 0;
+  
   while (true) {
     while (SerialGPS.available()) {
       char c = SerialGPS.read();
@@ -29,6 +31,19 @@ void gpsTask(void *parameter) {
       currentGPS.satellites = gps.satellites.value();
       currentGPS.timestamp = formatGpsTimestamp(gps.date, gps.time);
       xSemaphoreGive(gpsMutex);
+      
+      // Debug GPS status every 10 seconds
+      if (millis() - lastDebugTime > 10000) {
+        lastDebugTime = millis();
+        if (BT.hasClient()) {
+          BT.println("[GPS] Sats: " + String(currentGPS.satellites) + 
+                     ", Fix: " + String(currentGPS.isValid ? "YES" : "NO"));
+          if (currentGPS.isValid) {
+            BT.println("[GPS] Lat: " + String(currentGPS.latitude, 6) + 
+                       ", Lng: " + String(currentGPS.longitude, 6));
+          }
+        }
+      }
     }
     
     vTaskDelay(pdMS_TO_TICKS(GPS_UPDATE_INTERVAL));
@@ -52,6 +67,10 @@ void loraTask(void *parameter) {
       // Receive LoRa packets
       int packetSize = LoRa.parsePacket();
       if (packetSize) {
+        if (BT.hasClient()) {
+          BT.println("[LoRa RX] Packet detected, size: " + String(packetSize));
+        }
+        
         String incoming = "";
         while (LoRa.available()) {
           incoming += (char)LoRa.read();
@@ -142,19 +161,31 @@ void loraTask(void *parameter) {
             
             // Send via LoRa
             logToBoth("[LoRa TX] Sending GPS");
+            if (BT.hasClient()) {
+              BT.println("[LoRa TX] Payload: " + payload);
+              BT.println("[LoRa TX] Size: " + String(payload.length()) + " bytes");
+            }
+            
             LoRa.beginPacket();
             LoRa.print(payload);
             LoRa.endPacket();
             LoRa.receive(); // Return to RX mode immediately
+            
+            if (BT.hasClient()) {
+              BT.println("[LoRa TX] Transmission complete");
+            }
             
             if (acknowledgmentEnabled) {
               // Wait for ACK
               waitingForAck = true;
               ackWaitStart = millis();
               lastSentPayload = payload;
-              logToBoth("[LoRa] Waiting for ACK...");
+              logToBoth("[LoRa] Waiting for ACK (timeout: 5s)...");
             } else {
               // Send via GSM simultaneously (no ACK mode)
+              if (BT.hasClient()) {
+                BT.println("[Mode] No ACK - sending GSM simultaneously");
+              }
               xSemaphoreGive(loraMutex);
               if (xSemaphoreTake(smsMutex, pdMS_TO_TICKS(5000)) == pdTRUE) {
                 logToBoth("[GSM TX] Sending GPS");
@@ -180,9 +211,16 @@ void loraTask(void *parameter) {
 void smsTask(void *parameter) {
   logToBoth("[SMS Task] Started - Queue mode");
   
+  static unsigned long checkCount = 0;
+  
   while (true) {
     if (xSemaphoreTake(smsMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
       // Check for stored messages in SIM memory
+      checkCount++;
+      if (BT.hasClient() && (checkCount % 10 == 0)) {
+        BT.println("[SMS] Checking queue (check #" + String(checkCount) + ")...");
+      }
+      
       SerialSIM.println("AT+CMGL=\"REC UNREAD\""); // List unread messages
       delay(500); // Wait for response
       
@@ -266,11 +304,13 @@ void bluetoothTask(void *parameter) {
       
       if (command == "tracker") {
         currentMode = MODE_TRACKER;
-        BT.println(">>> TRACKER MODE");
+        BT.println(">>> MODE CHANGED: TRACKER");
+        BT.println(">>> Will send GPS every " + String(GPS_SEND_INTERVAL/1000) + "s");
       }
       else if (command == "ground") {
         currentMode = MODE_GROUND_STATION;
-        BT.println(">>> GROUND MODE");
+        BT.println(">>> MODE CHANGED: GROUND STATION");
+        BT.println(">>> Will receive data only");
       }
       else if (command == "status") {
         GPSData localGPS;

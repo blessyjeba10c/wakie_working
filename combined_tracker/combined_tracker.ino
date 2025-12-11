@@ -113,8 +113,18 @@ void setup() {
   logToBoth("All tasks started");
   logToBoth("Mode: TRACKER");
   
-  BT.println("\n=== READY ===");
-  BT.println("Type 'help'");
+  BT.println("\n=== SYSTEM READY ===");
+  BT.println("Debug Mode: ENABLED");
+  BT.println("All operations will be logged");
+  BT.println("\n--- Configuration ---");
+  BT.println("GPS: Serial 0 @ 9600");
+  BT.println("GSM: Serial 1 @ 9600");
+  BT.println("LoRa: " + String(LORA_FREQ / 1E6) + " MHz");
+  BT.println("GPS Send Interval: " + String(GPS_SEND_INTERVAL / 1000) + "s");
+  BT.println("SMS Check Interval: " + String(SMS_UPDATE_INTERVAL / 1000) + "s");
+  BT.println("ACK Mode: " + String(acknowledgmentEnabled ? "ON" : "OFF"));
+  BT.println("\nType 'help' for commands");
+  BT.println("=====================\n");
 }
 
 void loop() {
