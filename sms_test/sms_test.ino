@@ -2,6 +2,7 @@
 // Hardware: ESP32 + SIM800L module
 
 #include "SIM800L.h"
+#include "BluetoothSerial.h"
 
 // SIM800L pins
 #define SIM_RX_PIN 26  // ESP32 RX1 -> SIM800L TX
@@ -14,12 +15,24 @@ const char* PHONE2 = "+919944127336";
 // Create SIM800L object and Serial
 HardwareSerial SerialSIM(1);
 SIM800L sim800l;
+BluetoothSerial BT;
+
+// Helper to log to both Serial and Bluetooth
+void logBoth(String message) {
+  Serial.println(message);
+  BT.println(message);
+}
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
   
-  Serial.println("=== SIM800L SMS Test ===");
+  // Initialize Bluetooth
+  BT.begin("GPS_Tracker_SMS_Test");
+  delay(1000);
+  
+  logBoth("=== SIM800L SMS Test ===");
+  logBoth("Bluetooth: GPS_Tracker_SMS_Test");
   
   // Initialize SIM800L serial
   SerialSIM.begin(9600, SERIAL_8N1, SIM_RX_PIN, SIM_TX_PIN);
@@ -27,40 +40,40 @@ void setup() {
   
   // Initialize SIM800L module
   if (sim800l.begin(SerialSIM)) {
-    Serial.println("SIM800L initialized successfully!");
+    logBoth("SIM800L initialized successfully!");
     
     // Check network registration
     if (sim800l.checkNetwork()) {
-      Serial.println("Network connected!");
+      logBoth("Network connected!");
       
       // Get signal strength
       int signal = sim800l.signalStrength();
-      Serial.println("Signal strength: " + String(signal) + "/31");
+      logBoth("Signal strength: " + String(signal) + "/31");
       
       // Send SMS to first number
-      Serial.println("\nSending SMS to: " + String(PHONE1));
+      logBoth("\nSending SMS to: " + String(PHONE1));
       if (sendSMS(PHONE1, "hello")) {
-        Serial.println("✓ SMS sent to " + String(PHONE1));
+        logBoth("✓ SMS sent to " + String(PHONE1));
       } else {
-        Serial.println("✗ Failed to send to " + String(PHONE1));
+        logBoth("✗ Failed to send to " + String(PHONE1));
       }
       delay(2000);
       
       // Send SMS to second number
-      Serial.println("\nSending SMS to: " + String(PHONE2));
+      logBoth("\nSending SMS to: " + String(PHONE2));
       if (sendSMS(PHONE2, "hello")) {
-        Serial.println("✓ SMS sent to " + String(PHONE2));
+        logBoth("✓ SMS sent to " + String(PHONE2));
       } else {
-        Serial.println("✗ Failed to send to " + String(PHONE2));
+        logBoth("✗ Failed to send to " + String(PHONE2));
       }
       
-      Serial.println("\n=== Done ===");
+      logBoth("\n=== Done ===");
       
     } else {
-      Serial.println("✗ No network connection!");
+      logBoth("✗ No network connection!");
     }
   } else {
-    Serial.println("✗ SIM800L initialization failed!");
+    logBoth("✗ SIM800L initialization failed!");
   }
 }
 

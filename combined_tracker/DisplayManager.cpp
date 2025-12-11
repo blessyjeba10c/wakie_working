@@ -86,13 +86,17 @@ void showMainScreen() {
   snprintf(modeLine, sizeof(modeLine), "Mode: %s", mode.c_str());
   u8g2.drawStr(0, 25, modeLine);
   
-  // GPS Status
-  if (currentGPS.isValid) {
-    char gpsLine[32];
-    snprintf(gpsLine, sizeof(gpsLine), "GPS: LOCK (%d sat)", currentGPS.satellites);
-    u8g2.drawStr(0, 35, gpsLine);
+  // GPS Status (only show in TRACKER mode)
+  if (currentMode == MODE_TRACKER) {
+    if (currentGPS.isValid) {
+      char gpsLine[32];
+      snprintf(gpsLine, sizeof(gpsLine), "GPS: LOCK (%d sat)", currentGPS.satellites);
+      u8g2.drawStr(0, 35, gpsLine);
+    } else {
+      u8g2.drawStr(0, 35, "GPS: NO FIX");
+    }
   } else {
-    u8g2.drawStr(0, 35, "GPS: NO FIX");
+    u8g2.drawStr(0, 35, "GPS: N/A (Ground)");
   }
   
   // GSM Status
@@ -148,7 +152,12 @@ void showGPSScreen() {
   u8g2.drawStr(0, 10, "GPS Info");
   u8g2.drawHLine(0, 12, 128);
   
-  if (currentGPS.isValid) {
+  // Only show GPS data in TRACKER mode
+  if (currentMode == MODE_GROUND_STATION) {
+    u8g2.drawStr(0, 25, "GPS disabled in");
+    u8g2.drawStr(0, 35, "Ground Station mode");
+    u8g2.drawStr(0, 50, "Switch to TRACKER");
+  } else if (currentGPS.isValid) {
     u8g2.drawStr(0, 25, "Status: LOCKED");
     
     char latLine[32];

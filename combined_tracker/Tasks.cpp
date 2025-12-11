@@ -19,6 +19,23 @@ void gpsTask(void *parameter) {
   static unsigned long lastDebugTime = 0;
   
   while (true) {
+    // Suspend task if in GROUND_STATION mode
+    if (currentMode == MODE_GROUND_STATION) {
+      // Clear GPS data when switching to ground station
+      if (xSemaphoreTake(gpsMutex, portMAX_DELAY) == pdTRUE) {
+        currentGPS.latitude = 0.0;
+        currentGPS.longitude = 0.0;
+        currentGPS.isValid = false;
+        currentGPS.satellites = 0;
+        currentGPS.timestamp = "";
+        xSemaphoreGive(gpsMutex);
+      }
+      
+      // Suspend task to save resources
+      vTaskDelay(pdMS_TO_TICKS(1000)); // Check mode every second
+      continue;
+    }
+    
     // Only parse GPS in TRACKER mode
     if (currentMode == MODE_TRACKER) {
       while (SerialGPS.available()) {
@@ -105,10 +122,16 @@ void loraTask(void *parameter) {
             
             logToBoth("[LoRa RX] " + incoming);
             if (BT.hasClient()) {
-              BT.println("\n📡 LORA MESSAGE");
+              BT.println("\n📡 LORA RECEIVED PACKET");
+              BT.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+              BT.println("Size: " + String(packetSize) + " bytes");
               BT.println("RSSI: " + String(rssi) + " dBm");
               BT.println("SNR: " + String(snr) + " dB");
-              BT.println("Data: " + incoming + "\n");
+              BT.println("Frequency: 433 MHz");
+              BT.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+              BT.println("Payload:");
+              BT.println(incoming);
+              BT.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             }
             
             // Only show on display in TRACKER mode
@@ -171,8 +194,15 @@ void loraTask(void *parameter) {
             // Send via LoRa
             logToBoth("[LoRa TX] Sending GPS");
             if (BT.hasClient()) {
-              BT.println("[LoRa TX] Payload: " + payload);
-              BT.println("[LoRa TX] Size: " + String(payload.length()) + " bytes");
+              BT.println("\n📡 LORA TRANSMIT PACKET");
+              BT.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+              BT.println("Type: GPS Location");
+              BT.println("Size: " + String(payload.length()) + " bytes");
+              BT.println("Frequency: 433 MHz");
+              BT.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+              BT.println("Payload:");
+              BT.println(payload);
+              BT.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             }
             
             LoRa.beginPacket();
@@ -181,7 +211,7 @@ void loraTask(void *parameter) {
             LoRa.receive(); // Return to RX mode immediately
             
             if (BT.hasClient()) {
-              BT.println("[LoRa TX] Transmission complete");
+              BT.println("[LoRa TX] ✓ Transmission complete");
             }
             
             if (acknowledgmentEnabled) {

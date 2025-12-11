@@ -31,12 +31,10 @@ String formatGpsTimestamp(TinyGPSDate &d, TinyGPSTime &t) {
 
 String createPayload(double lat, double lon, const String &timestamp, const String &msgId) {
   String s = "{";
-  s += "\"soldier_id\":\"" + String(SOLDIER_ID) + "\",";
-  s += "\"device_type\":\"" + String(DEVICE_TYPE) + "\",";
-  s += "\"latitude\":" + String(lat, 6) + ",";
-  s += "\"longitude\":" + String(lon, 6) + ",";
-  s += "\"timestamp\":\"" + timestamp + "\",";
-  s += "\"message_id\":\"" + msgId + "\"";
+  s += "\"id\":\"" + String(SOLDIER_ID) + "\",";
+  s += "\"t\":" + String(lat, 4) + ",";
+  s += "\"g\":" + String(lon, 4) + ",";
+  s += "\"ts\":\"" + timestamp + "\",";
   s += "}";
   return s;
 }
