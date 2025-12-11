@@ -59,6 +59,14 @@ extern SemaphoreHandle_t gpsMutex;
 extern SemaphoreHandle_t loraMutex;
 extern SemaphoreHandle_t smsMutex;
 
+// Display and Keyboard States (forward declarations)
+struct DisplayState;
+struct KeyboardState;
+extern DisplayState displayState;
+extern KeyboardState keyboardState;
+extern SemaphoreHandle_t loraMutex;
+extern SemaphoreHandle_t smsMutex;
+
 // Display and Keyboard
 extern U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2;
 

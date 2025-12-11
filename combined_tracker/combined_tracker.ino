@@ -6,11 +6,11 @@
 #include <SPI.h>
 #include <LoRa.h>
 #include "Config.h"
+#include "DisplayManager.h"
+#include "KeyboardManager.h"
 #include "Globals.h"
 #include "Utils.h"
 #include "Tasks.h"
-#include "DisplayManager.h"
-#include "KeyboardManager.h"
 
 // Global object definitions
 TinyGPSPlus gps;
@@ -31,12 +31,17 @@ SemaphoreHandle_t gpsMutex;
 SemaphoreHandle_t loraMutex;
 SemaphoreHandle_t smsMutex;
 
+// Display and Keyboard State definitions (must be defined here)
+// These are extern in Globals.h but need actual definitions
+DisplayState displayState = {0};  // Initialize with zeros
+KeyboardState keyboardState = {0};  // Initialize with zeros
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
   
   // Initialize Bluetooth
-  BT.begin("Combined_Tracker");
+  BT.begin("Combined_Tracker_1");
   logToBoth("=== Combined Tracker ===");
   
   // Initialize GPS (uses Serial 0 - shared with USB)
