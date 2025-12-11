@@ -297,12 +297,25 @@ void bluetoothTask(void *parameter) {
           }
         }
       }
+      else if (command == "gpsraw" || command == "nmea") {
+        BT.println("=== GPS RAW DATA (2 sec) ===");
+        unsigned long startTime = millis();
+        while (millis() - startTime < 2000) {
+          if (SerialGPS.available()) {
+            char c = SerialGPS.read();
+            BT.write(c);
+          }
+          yield();
+        }
+        BT.println("\n=== END GPS RAW ===");
+      }
       else if (command == "help") {
         BT.println("=== COMMANDS ===");
         BT.println("tracker - Tracker mode");
         BT.println("ground - Ground mode");
         BT.println("status - Show status");
         BT.println("sms <msg> - Send message");
+        BT.println("gpsraw/nmea - Show GPS raw");
         BT.println("================");
       }
       else {
