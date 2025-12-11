@@ -370,20 +370,41 @@ void bluetoothTask(void *parameter) {
           String message = command.substring(4);
           message.trim();
           if (message.length() > 0) {
-            logToBoth("Sending SMS: " + message);
-            BT.println(">>> Sending SMS...");
+            logToBoth("Sending message via LoRa and GSM: " + message);
+            BT.println(">>> Sending message on both channels...");
             
+            bool loraOk = false;
+            bool smsOk = false;
+            
+            // Send via LoRa
+            if (xSemaphoreTake(loraMutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+              logToBoth("[LoRa] Sending command message");
+              LoRa.beginPacket();
+              LoRa.print(message);
+              LoRa.endPacket();
+              loraOk = true;
+              logToBoth("[LoRa] Message sent");
+              xSemaphoreGive(loraMutex);
+            }
+            
+            // Send via GSM
             if (xSemaphoreTake(smsMutex, pdMS_TO_TICKS(5000)) == pdTRUE) {
-              bool smsOk = sendSMSToNumber(RECEIVER_PHONES[0], message);
+              smsOk = sendSMSToNumber(RECEIVER_PHONES[0], message);
               xSemaphoreGive(smsMutex);
-              
               if (smsOk) {
-                BT.println(">>> SMS sent successfully!");
-                logToBoth("SMS sent successfully");
+                logToBoth("[GSM] SMS sent successfully");
               } else {
-                BT.println(">>> SMS send failed!");
-                logToBoth("SMS send failed");
+                logToBoth("[GSM] SMS send failed");
               }
+            }
+            
+            // Report results
+            BT.println(">>> LoRa: " + String(loraOk ? "✓ Sent" : "✗ Failed"));
+            BT.println(">>> GSM: " + String(smsOk ? "✓ Sent" : "✗ Failed"));
+            if (loraOk || smsOk) {
+              BT.println(">>> Message sent on " + String(loraOk && smsOk ? "both" : (loraOk ? "LoRa only" : "GSM only")));
+            } else {
+              BT.println(">>> Failed to send on both channels!");
             }
           }
         }
