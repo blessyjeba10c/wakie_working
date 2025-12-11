@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
+#include <LoRa.h>
 #include "Config.h"
 #include "Globals.h"
 #include "Utils.h"
@@ -15,7 +16,7 @@
 TinyGPSPlus gps;
 BluetoothSerial BT;
 SIM800L sim800l;
-#define SerialGPS Serial  // GPS uses Serial 0 (USB Serial)
+HardwareSerial &SerialGPS = Serial;  // GPS uses Serial 0 (USB Serial)
 HardwareSerial SerialSIM(1);
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R2, U8X8_PIN_NONE);
 

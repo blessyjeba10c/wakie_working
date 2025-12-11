@@ -3,9 +3,17 @@
 
 #include <Arduino.h>
 #include <TinyGPS++.h>
+#include <LoRa.h>
 #include "BluetoothSerial.h"
 #include "SIM800L.h"
 #include <U8g2lib.h>
+
+// Forward declarations for global objects
+extern TinyGPSPlus gps;
+extern BluetoothSerial BT;
+extern SIM800L sim800l;
+extern HardwareSerial &SerialGPS;
+extern HardwareSerial SerialSIM;
 
 // Operating Mode
 enum OperatingMode {
