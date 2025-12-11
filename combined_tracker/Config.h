@@ -8,13 +8,13 @@
 // LoRa Configuration
 #define LORA_FREQ 433E6
 
-// GPS Pins
-#define GPS_RX_PIN 16
-#define GPS_TX_PIN 17
+// GPS Pins (Serial 0 - USB Serial)
+#define GPS_RX_PIN 3   // RX0
+#define GPS_TX_PIN 1   // TX0
 
 // SIM800L Pins
-#define SIM_RX_PIN 26
-#define SIM_TX_PIN 25
+#define SIM_RX_PIN 25
+#define SIM_TX_PIN 26
 
 // LoRa Pins
 #define LORA_SS 5

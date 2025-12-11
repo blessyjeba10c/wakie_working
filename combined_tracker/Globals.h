@@ -38,7 +38,7 @@ struct SystemStatus {
 extern TinyGPSPlus gps;
 extern BluetoothSerial BT;
 extern SIM800L sim800l;
-extern HardwareSerial SerialGPS;
+// SerialGPS is defined as Serial in main file
 extern HardwareSerial SerialSIM;
 
 extern GPSData currentGPS;

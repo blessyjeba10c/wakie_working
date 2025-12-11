@@ -15,7 +15,7 @@
 TinyGPSPlus gps;
 BluetoothSerial BT;
 SIM800L sim800l;
-HardwareSerial SerialGPS(2);
+#define SerialGPS Serial  // GPS uses Serial 0 (USB Serial)
 HardwareSerial SerialSIM(1);
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R2, U8X8_PIN_NONE);
 
@@ -38,9 +38,9 @@ void setup() {
   BT.begin("Combined_Tracker");
   logToBoth("=== Combined Tracker ===");
   
-  // Initialize GPS
-  SerialGPS.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
-  logToBoth("GPS initialized");
+  // Initialize GPS (uses Serial 0 - shared with USB)
+  // Note: GPS and Serial Monitor cannot be used simultaneously
+  logToBoth("GPS on Serial 0");
   
   // Initialize SIM800L
   SerialSIM.begin(9600, SERIAL_8N1, SIM_RX_PIN, SIM_TX_PIN);
