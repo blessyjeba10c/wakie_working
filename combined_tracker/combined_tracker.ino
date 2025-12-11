@@ -41,7 +41,7 @@ void setup() {
   delay(1000);
   
   // Initialize Bluetooth
-  BT.begin("Combined_Tracker_1");
+  BT.begin("Combined_Tracker_2");
   logToBoth("=== Combined Tracker ===");
   
   // Initialize GPS (uses Serial 0 - shared with USB)

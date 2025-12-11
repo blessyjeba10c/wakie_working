@@ -19,30 +19,38 @@ void gpsTask(void *parameter) {
   static unsigned long lastDebugTime = 0;
   
   while (true) {
-    while (SerialGPS.available()) {
-      char c = SerialGPS.read();
-      gps.encode(c);
-    }
-    
-    if (xSemaphoreTake(gpsMutex, portMAX_DELAY) == pdTRUE) {
-      currentGPS.latitude = gps.location.lat();
-      currentGPS.longitude = gps.location.lng();
-      currentGPS.isValid = gps.location.isValid();
-      currentGPS.satellites = gps.satellites.value();
-      currentGPS.timestamp = formatGpsTimestamp(gps.date, gps.time);
-      xSemaphoreGive(gpsMutex);
+    // Only parse GPS in TRACKER mode
+    if (currentMode == MODE_TRACKER) {
+      while (SerialGPS.available()) {
+        char c = SerialGPS.read();
+        gps.encode(c);
+      }
       
-      // Debug GPS status every 10 seconds
-      if (millis() - lastDebugTime > 10000) {
-        lastDebugTime = millis();
-        if (BT.hasClient()) {
-          BT.println("[GPS] Sats: " + String(currentGPS.satellites) + 
-                     ", Fix: " + String(currentGPS.isValid ? "YES" : "NO"));
-          if (currentGPS.isValid) {
-            BT.println("[GPS] Lat: " + String(currentGPS.latitude, 6) + 
-                       ", Lng: " + String(currentGPS.longitude, 6));
+      if (xSemaphoreTake(gpsMutex, portMAX_DELAY) == pdTRUE) {
+        currentGPS.latitude = gps.location.lat();
+        currentGPS.longitude = gps.location.lng();
+        currentGPS.isValid = gps.location.isValid();
+        currentGPS.satellites = gps.satellites.value();
+        currentGPS.timestamp = formatGpsTimestamp(gps.date, gps.time);
+        xSemaphoreGive(gpsMutex);
+        
+        // Debug GPS status every 10 seconds
+        if (millis() - lastDebugTime > 10000) {
+          lastDebugTime = millis();
+          if (BT.hasClient()) {
+            BT.println("[GPS] Sats: " + String(currentGPS.satellites) + 
+                       ", Fix: " + String(currentGPS.isValid ? "YES" : "NO"));
+            if (currentGPS.isValid) {
+              BT.println("[GPS] Lat: " + String(currentGPS.latitude, 6) + 
+                         ", Lng: " + String(currentGPS.longitude, 6));
+            }
           }
         }
+      }
+    } else {
+      // In GROUND mode, just clear the serial buffer to prevent overflow
+      while (SerialGPS.available()) {
+        SerialGPS.read();
       }
     }
     
@@ -103,7 +111,8 @@ void loraTask(void *parameter) {
               BT.println("Data: " + incoming + "\n");
             }
             
-            if (displayState.initialized) {
+            // Only show on display in TRACKER mode
+            if (displayState.initialized && currentMode == MODE_TRACKER) {
               displayReceivedMessage("LoRa", String(rssi) + "dBm", incoming);
             }
             
@@ -269,7 +278,8 @@ void smsTask(void *parameter) {
               BT.println("Msg: " + messageBody + "\n");
             }
             
-            if (displayState.initialized) {
+            // Only show on display in TRACKER mode
+            if (displayState.initialized && currentMode == MODE_TRACKER) {
               displayReceivedMessage("SMS", senderNumber, messageBody);
             }
             
@@ -306,11 +316,32 @@ void bluetoothTask(void *parameter) {
         currentMode = MODE_TRACKER;
         BT.println(">>> MODE CHANGED: TRACKER");
         BT.println(">>> Will send GPS every " + String(GPS_SEND_INTERVAL/1000) + "s");
+        
+        // Resume display and keyboard tasks
+        if (displayTaskHandle != NULL) {
+          vTaskResume(displayTaskHandle);
+          BT.println(">>> Display task RESUMED");
+        }
+        if (keyboardTaskHandle != NULL) {
+          vTaskResume(keyboardTaskHandle);
+          BT.println(">>> Keyboard task RESUMED");
+        }
       }
       else if (command == "ground") {
         currentMode = MODE_GROUND_STATION;
         BT.println(">>> MODE CHANGED: GROUND STATION");
         BT.println(">>> Will receive data only");
+        BT.println(">>> Suspending Display & Keyboard for max reception");
+        
+        // Suspend display and keyboard tasks to save CPU for LoRa/SMS
+        if (displayTaskHandle != NULL) {
+          vTaskSuspend(displayTaskHandle);
+          BT.println(">>> Display task SUSPENDED");
+        }
+        if (keyboardTaskHandle != NULL) {
+          vTaskSuspend(keyboardTaskHandle);
+          BT.println(">>> Keyboard task SUSPENDED");
+        }
       }
       else if (command == "status") {
         GPSData localGPS;
@@ -404,7 +435,10 @@ void displayTask(void *parameter) {
   logToBoth("[Display Task] Started");
   
   while (true) {
-    updateDisplay();
+    // Only update display in TRACKER mode
+    if (currentMode == MODE_TRACKER) {
+      updateDisplay();
+    }
     vTaskDelay(pdMS_TO_TICKS(DISPLAY_UPDATE_INTERVAL));
   }
 }
@@ -413,7 +447,10 @@ void keyboardTask(void *parameter) {
   logToBoth("[Keyboard Task] Started");
   
   while (true) {
-    scanKeyboard();
+    // Only scan keyboard in TRACKER mode
+    if (currentMode == MODE_TRACKER) {
+      scanKeyboard();
+    }
     vTaskDelay(pdMS_TO_TICKS(KEYBOARD_SCAN_INTERVAL));
   }
 }
