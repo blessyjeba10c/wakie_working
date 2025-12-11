@@ -37,7 +37,7 @@ DisplayState displayState = {0};  // Initialize with zeros
 KeyboardState keyboardState = {0};  // Initialize with zeros
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);  // Match GPS baud rate (GPS on Serial 0)
   delay(1000);
   
   // Initialize Bluetooth
